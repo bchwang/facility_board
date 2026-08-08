@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>시설관리 상황판</title>
+<style>
+  :root{
+    --bg:#12161b;
+    --panel:#1b222a;
+    --panel-alt:#202932;
+    --border:#2a333d;
+    --text:#e7ecf1;
+    --text-dim:#8c97a3;
+    --amber:#f2a93c;
+    --amber-dim:rgba(242,169,60,0.14);
+    --teal:#45bfb8;
+    --teal-dim:rgba(69,191,184,0.12);
+    --red:#e5555b;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "Apple SD Gothic Neo", "Segoe UI", sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+  body{min-height:100vh;padding:20px 20px 60px;}
+  .wrap{max-width:1180px;margin:0 auto;}
+
+  /* header */
+  .topbar{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:14px;margin-bottom:18px;}
+  .title-block h1{font-size:22px;margin:0 0 4px;letter-spacing:-0.02em;font-weight:800;}
+  .title-block .eyebrow{font-family:var(--mono);font-size:11px;color:var(--amber);letter-spacing:0.12em;text-transform:uppercase;}
+  .clock{font-family:var(--mono);font-size:13px;color:var(--text-dim);text-align:right;line-height:1.5;}
+  .clock b{color:var(--text);font-size:16px;font-weight:700;letter-spacing:0.02em;}
+
+  /* tabs */
+  .tabs{display:flex;gap:6px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:4px;width:fit-content;margin-bottom:16px;}
+  .tab{padding:8px 18px;border-radius:7px;font-size:13px;font-weight:700;color:var(--text-dim);cursor:pointer;user-select:none;transition:all .15s ease;}
+  .tab.active{background:var(--amber-dim);color:var(--amber);}
+  .tab:hover:not(.active){color:var(--text);}
+
+  /* now ribbon */
+  .ribbon{background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--amber);border-radius:10px;padding:12px 16px;margin-bottom:18px;}
+  .ribbon-label{font-family:var(--mono);font-size:10px;color:var(--amber);letter-spacing:0.14em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--amber);display:inline-block;animation:pulse 1.8s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .ribbon-list{display:flex;flex-wrap:wrap;gap:8px;}
+  .ribbon-item{background:var(--amber-dim);color:var(--amber);font-size:13px;font-weight:600;padding:6px 12px;border-radius:20px;}
+  .ribbon-empty{color:var(--text-dim);font-size:13px;}
+
+  /* grid */
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+  @media (max-width:860px){.grid{grid-template-columns:1fr;}}
+
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;}
+  .panel-head{padding:14px 16px 10px;border-bottom:1px solid var(--border);}
+  .panel-name{font-size:15px;font-weight:800;margin-bottom:8px;}
+  .gauges{display:flex;gap:6px;}
+  .gauge{font-family:var(--mono);font-size:11px;padding:3px 8px;border-radius:6px;font-weight:700;letter-spacing:0.02em;}
+  .gauge.now{background:var(--amber-dim);color:var(--amber);}
+  .gauge.next{background:var(--teal-dim);color:var(--teal);}
+  .gauge.done{background:var(--panel-alt);color:var(--text-dim);}
+
+  .panel-body{padding:10px 12px;flex:1;display:flex;flex-direction:column;gap:14px;}
+  .group-label{font-family:var(--mono);font-size:10px;color:var(--text-dim);letter-spacing:0.1em;text-transform:uppercase;margin:0 4px 6px;}
+  .items{display:flex;flex-direction:column;gap:6px;}
+  .item{display:flex;align-items:center;gap:8px;background:var(--panel-alt);border-radius:8px;padding:8px 8px 8px 10px;border-left:3px solid transparent;}
+  .item.now{border-left-color:var(--amber);}
+  .item.next{border-left-color:var(--teal);}
+  .item.done{border-left-color:var(--border);opacity:.55;}
+  .item.done .item-text{text-decoration:line-through;}
+  .item-text{flex:1;font-size:13.5px;line-height:1.4;}
+  .item-actions{display:flex;gap:2px;flex-shrink:0;}
+  .icon-btn{width:22px;height:22px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-radius:5px;font-size:12px;display:flex;align-items:center;justify-content:center;}
+  .icon-btn:hover{background:#2a333d;color:var(--text);}
+  .status-btn{font-family:var(--mono);font-size:10px;font-weight:700;padding:4px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;cursor:pointer;white-space:nowrap;}
+  .status-btn.now{color:var(--amber);border-color:var(--amber);}
+  .status-btn.next{color:var(--teal);border-color:var(--teal);}
+  .status-btn.done{color:var(--text-dim);}
+
+  .empty-hint{font-size:12px;color:var(--text-dim);padding:6px 4px;}
+
+  .add-row{display:flex;gap:6px;padding:10px 12px;border-top:1px solid var(--border);background:var(--panel-alt);}
+  .add-row input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:8px 10px;font-size:13px;font-family:var(--sans);}
+  .add-row input:focus{outline:none;border-color:var(--amber);}
+  .add-row button{background:var(--amber);color:#1a1204;border:none;border-radius:7px;padding:0 14px;font-weight:800;font-size:13px;cursor:pointer;}
+  .add-row button:hover{opacity:.9;}
+
+  .saved-note{text-align:right;font-family:var(--mono);font-size:10.5px;color:var(--text-dim);margin-top:10px;}
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="title-block">
+      <div class="eyebrow">양지파인리조트 · 시설관리팀</div>
+      <h1>시설관리 상황판</h1>
+    </div>
+    <div class="clock"><b id="clockTime">--:--:--</b><br><span id="clockDate">----.--.--</span></div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <div class="tab active" data-tf="today">오늘</div>
+    <div class="tab" data-tf="week">이번 주</div>
+    <div class="tab" data-tf="month">이번 달</div>
+  </div>
+
+  <div class="ribbon">
+    <div class="ribbon-label"><span class="dot"></span>지금 처리해야 할 일</div>
+    <div class="ribbon-list" id="ribbonList"></div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="saved-note" id="savedNote">Firebase 연결 중…</div>
+</div>
+
+<!-- ▼▼▼ 여기에 Firebase 콘솔에서 복사한 본인 프로젝트의 설정값을 붙여넣으세요 ▼▼▼ -->
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBQTbPkV5ry_HFArbT4yiMIzIdibpnLYU4",
+  authDomain: "yustel-manager.firebaseapp.com",
+  projectId: "yustel-manager",
+  storageBucket: "yustel-manager.firebasestorage.app",
+  messagingSenderId: "585662351877",
+  appId: "1:585662351877:web:2b26223e4f98714406a6c"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+</script>
+<!-- ▲▲▲ 여기까지 ▲▲▲ -->
+
+<script>
+const CATS = [
+  {key:'golf', name:'골프장'},
+  {key:'condo', name:'콘도'},
+  {key:'future', name:'미래개발 요청'}
+];
+const TIMEFRAMES = ['today','week','month'];
+const STATUS_ORDER = ['now','next','done'];
+const STATUS_LABEL = {now:'지금', next:'다음', done:'완료'};
+
+const SEED = {
+  today: { golf: [], condo: [], future: [] },
+  week: {
+    golf: [
+      {text:'급탕가열기 1호기 스팀 공압밸브 구동기 교체 결재 진행', status:'now'},
+      {text:'오수처리장 반기별 슬러지 청소 업체 일정 조율', status:'next'}
+    ],
+    condo: [
+      {text:'오렌지동 203호/303호 화장실 공사 - 윤덕타일 견적 검토', status:'now'},
+      {text:'온수순환펌프 2호 배관·밸브류 교체 결재 추진(원소방 견적)', status:'next'}
+    ],
+    future: [
+      {text:'객실 프로그램 GitHub 저장소 공개 상태 보안 점검', status:'next'}
+    ]
+  },
+  month: {
+    golf: [
+      {text:'오수처리장(골프장) 정화조 청소 반기 처리 완료 확인', status:'next'}
+    ],
+    condo: [
+      {text:'오렌지동 1현관 보일러 여름철 실내 더움 민원 재확인', status:'next'}
+    ],
+    future: [
+      {text:'미래개발 요청사항 정리 및 회신', status:'next'}
+    ]
+  }
+};
+
+let state = {};       // { today: {golf:[...],condo:[...],future:[...]}, week:{...}, month:{...} }
+let loaded = {today:false, week:false, month:false};
+let activeTf = 'today';
+let idCounter = 1;
+
+function uid(){ return 't' + (Date.now()) + '_' + (idCounter++); }
+
+function ensureIds(board){
+  CATS.forEach(c=>{
+    (board[c.key]||[]).forEach(item=>{ if(!item.id) item.id = uid(); if(item.order===undefined) item.order = 0; });
+  });
+  return board;
+}
+
+const STORAGE_PREFIX = 'yangji_board_'; // (미사용 - Firestore로 대체됨)
+
+function subscribeBoard(tf){
+  db.collection('facility_board').doc(tf).onSnapshot(async (docSnap)=>{
+    if(docSnap.exists && docSnap.data().data){
+      state[tf] = ensureIds(JSON.parse(docSnap.data().data));
+    } else {
+      // 문서가 아직 없으면 기본값으로 최초 생성
+      state[tf] = ensureIds(JSON.parse(JSON.stringify(SEED[tf])));
+      await saveBoard(tf);
+    }
+    loaded[tf] = true;
+    document.getElementById('savedNote').textContent = '실시간 동기화됨 · ' + new Date().toLocaleTimeString('ko-KR');
+    if(tf === activeTf) render();
+  }, (err)=>{
+    console.error(err);
+    document.getElementById('savedNote').textContent = '동기화 실패 — Firebase 설정값 또는 보안 규칙을 확인해 주세요';
+  });
+}
+
+async function loadBoard(tf){
+  // 실시간 구독이 이미 데이터를 채워주므로, 아직 안 왔으면 잠깐 대기
+  let tries = 0;
+  while(!loaded[tf] && tries < 50){
+    await new Promise(r=>setTimeout(r, 100));
+    tries++;
+  }
+  return state[tf];
+}
+
+async function saveBoard(tf){
+  try{
+    await db.collection('facility_board').doc(tf).set({data: JSON.stringify(state[tf])});
+  }catch(e){
+    document.getElementById('savedNote').textContent = '저장 실패 — 인터넷 연결 또는 Firebase 설정을 확인해 주세요';
+    console.error(e);
+  }
+}
+
+function cycleStatus(s){
+  const i = STATUS_ORDER.indexOf(s);
+  return STATUS_ORDER[(i+1) % STATUS_ORDER.length];
+}
+
+function renderRibbon(){
+  const board = state[activeTf];
+  const list = document.getElementById('ribbonList');
+  list.innerHTML = '';
+  let items = [];
+  CATS.forEach(c=>{
+    (board[c.key]||[]).filter(i=>i.status==='now').forEach(i=> items.push({...i, cat:c.name}));
+  });
+  if(items.length===0){
+    list.innerHTML = '<span class="ribbon-empty">지금 처리로 표시된 항목이 없습니다.</span>';
+    return;
+  }
+  items.forEach(i=>{
+    const el = document.createElement('div');
+    el.className = 'ribbon-item';
+    el.textContent = `[${i.cat}] ${i.text}`;
+    list.appendChild(el);
+  });
+}
+
+function renderPanel(cat){
+  const board = state[activeTf];
+  const items = board[cat.key] || [];
+  const counts = {now:0,next:0,done:0};
+  items.forEach(i=> counts[i.status]++);
+
+  const panel = document.createElement('div');
+  panel.className = 'panel';
+
+  panel.innerHTML = `
+    <div class="panel-head">
+      <div class="panel-name">${cat.name}</div>
+      <div class="gauges">
+        <div class="gauge now">지금 ${counts.now}</div>
+        <div class="gauge next">다음 ${counts.next}</div>
+        <div class="gauge done">완료 ${counts.done}</div>
+      </div>
+    </div>
+    <div class="panel-body">
+      ${STATUS_ORDER.map(st=>renderGroup(cat, items, st)).join('')}
+    </div>
+    <div class="add-row">
+      <input type="text" placeholder="할 일 추가 후 Enter" data-catkey="${cat.key}">
+      <button data-catkey="${cat.key}">추가</button>
+    </div>
+  `;
+  return panel;
+}
+
+function renderGroup(cat, items, status){
+  const groupItems = items.filter(i=>i.status===status).sort((a,b)=>a.order-b.order);
+  const label = status==='now' ? '지금 처리' : status==='next' ? '다음 준비' : '완료';
+  let body;
+  if(groupItems.length===0){
+    body = `<div class="empty-hint">${status==='done' ? '완료된 항목 없음' : '없음'}</div>`;
+  } else {
+    body = `<div class="items">` + groupItems.map(i=>renderItem(cat, i)).join('') + `</div>`;
+  }
+  return `<div><div class="group-label">${label}</div>${body}</div>`;
+}
+
+function renderItem(cat, item){
+  return `
+    <div class="item ${item.status}">
+      <div class="item-text">${escapeHtml(item.text)}</div>
+      <div class="item-actions">
+        <button class="status-btn ${item.status}" data-act="cycle" data-catkey="${cat.key}" data-id="${item.id}">${STATUS_LABEL[cycleStatus(item.status)]}로</button>
+        <button class="icon-btn" data-act="del" data-catkey="${cat.key}" data-id="${item.id}" title="삭제">✕</button>
+      </div>
+    </div>`;
+}
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function render(){
+  renderRibbon();
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  CATS.forEach(c=> grid.appendChild(renderPanel(c)));
+  bindGridEvents();
+}
+
+function bindGridEvents(){
+  document.querySelectorAll('[data-act="cycle"]').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      const {catkey, id} = e.currentTarget.dataset;
+      const arr = state[activeTf][catkey];
+      const it = arr.find(x=>x.id===id);
+      if(it){ it.status = cycleStatus(it.status); await saveBoard(activeTf); render(); }
+    });
+  });
+  document.querySelectorAll('[data-act="del"]').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      const {catkey, id} = e.currentTarget.dataset;
+      state[activeTf][catkey] = state[activeTf][catkey].filter(x=>x.id!==id);
+      await saveBoard(activeTf); render();
+    });
+  });
+  document.querySelectorAll('.add-row button').forEach(btn=>{
+    btn.addEventListener('click', ()=> addTask(btn.dataset.catkey));
+  });
+  document.querySelectorAll('.add-row input').forEach(inp=>{
+    inp.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter') addTask(inp.dataset.catkey);
+    });
+  });
+}
+
+async function addTask(catkey){
+  const input = document.querySelector(`.add-row input[data-catkey="${catkey}"]`);
+  const text = input.value.trim();
+  if(!text) return;
+  const arr = state[activeTf][catkey];
+  const maxOrder = arr.filter(i=>i.status==='next').reduce((m,i)=>Math.max(m,i.order),0);
+  arr.push({id: uid(), text, status:'next', order: maxOrder+1});
+  input.value = '';
+  await saveBoard(activeTf);
+  render();
+}
+
+document.getElementById('tabs').addEventListener('click', async (e)=>{
+  const tab = e.target.closest('.tab');
+  if(!tab) return;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  tab.classList.add('active');
+  activeTf = tab.dataset.tf;
+  document.getElementById('savedNote').textContent = '불러오는 중…';
+  await loadBoard(activeTf);
+  render();
+});
+
+function tickClock(){
+  const now = new Date();
+  document.getElementById('clockTime').textContent = now.toLocaleTimeString('ko-KR', {hour12:false});
+  document.getElementById('clockDate').textContent = now.toLocaleDateString('ko-KR', {year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'});
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+(async function init(){
+  TIMEFRAMES.forEach(tf => subscribeBoard(tf));
+  await loadBoard('today');
+  render();
+})();
+</script>
+</body>
+</html>
